@@ -1,14 +1,13 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/phillip-england/gun/lexer"
+	"github.com/phillip-england/gun/logi"
 )
 
 func main() {
 
-	n, err := lexer.NewNodeRoot(`
+	nodes, err := lexer.Tokenize(`
 		<h1>%s name%</h1>
 		<p>%s age%</p>
 		<ul _for="friend in user.Friend Friend[]">
@@ -26,6 +25,8 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println(n)
+	for _, n := range nodes {
+		logi.Log(n.GetInfo().String)
+	}
 
 }

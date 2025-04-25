@@ -12,7 +12,7 @@ type NodeRoot struct {
 
 func NewNodeRoot(s string) (NodeRoot, error) {
 	n := &NodeRoot{}
-	info, err := NewNodeInfo(NodeTypeRoot)
+	info, err := NewNodeInfo(NodeTypeRoot, s)
 	if err != nil {
 		return *n, err
 	}

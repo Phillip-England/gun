@@ -6,7 +6,7 @@ type NodeArg struct {
 
 func NewNodeArg(s string) (NodeArg, error) {
 	n := &NodeArg{}
-	info, err := NewNodeInfo(NodeTypeArg)
+	info, err := NewNodeInfo(NodeTypeArg, s)
 	if err != nil {
 		return *n, err
 	}
