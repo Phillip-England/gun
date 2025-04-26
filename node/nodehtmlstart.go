@@ -4,9 +4,9 @@ type NodeHtmlStart struct {
 	Info NodeInfo
 }
 
-func NewNodeHtmlStart(s string) (NodeHtmlStart, error) {
+func NewNodeHtmlStart() (NodeHtmlStart, error) {
 	n := &NodeHtmlStart{}
-	info, err := NewNodeInfo(NodeTypeHtmlStart, s)
+	info, err := NewNodeInfo(NodeTypeHtmlStart, "<")
 	if err != nil {
 		return *n, err
 	}
