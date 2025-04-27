@@ -30,7 +30,16 @@ func main() {
 	panic(err)
 	}
 
-	logi.Log(token.Construct(toks))
+	// logi.Log(token.Construct(toks))
+
+	elms, err := token.SplitTokensIntoElementStrings(toks)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, elm := range elms {
+		logi.Log("==========\n", elm)
+	}
 
 
 }

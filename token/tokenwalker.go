@@ -243,3 +243,13 @@ func (tw *TokenWalker) Matches(types []TokenType) bool {
 	}
 	return false
 }
+
+func (tw *TokenWalker) Count(target TokenType) int {
+	count := 0
+	for _, tok := range tw.Tokens {
+		if tok.Type == target {
+			count++
+		}
+	}
+	return count
+}

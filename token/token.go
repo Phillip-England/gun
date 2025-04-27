@@ -2,6 +2,7 @@ package token
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/phillip-england/gun/lexer"
@@ -538,7 +539,74 @@ func Construct(toks []Token) string {
 	return out
 }
 
+func SplitTokensIntoElementStrings(toks []Token) ([]string, error) {
+	
+	out := []string{}
+	tw, err := NewTokenWalker(toks)
+	if err != nil {
+		return out, err
+	}
 
+	for {
+		if tw.Done {
+			return out, nil
+		}
+
+		if tw.Matches([]TokenType{TokenHtmlOpenTagOpeningBracket}) {
+			tw.MarkPos()
+			tw.WalkUntil([]TokenType{TokenHtmlOpenTagName})
+			tagname := tw.Current.Lexeme
+			count := 0
+			for {
+				if tw.Done {
+					break
+				}
+				if tw.Current.Lexeme == tagname && tw.Type() == TokenHtmlOpenTagName {
+					count += 1
+				}
+				if tw.Current.Lexeme == tagname && tw.Type() == TokenHtmlCloseTagName {
+					count -= 1
+				}
+				if count == 0 {
+					tw.Step()
+					out = append(out, Construct(tw.FlushFromMarkedPos()))
+					break
+				}
+				tw.Step()
+			}
+		}
+
+
+		if tw.Matches([]TokenType{TokenHtmlSelfClosingTagOpeningBracket}) {
+			tw.MarkPos()
+			tw.WalkUntil([]TokenType{TokenHtmlSelfClosingTagClosingBracket})
+			if tw.Type() == TokenEndOfInput {
+				continue
+			}
+			out = append(out, Construct(tw.FlushFromMarkedPos()))
+			tw.Step()
+			continue
+		}
+
+
+		tw.Step()
+	}
+	
+
+	return out, nil
+}
+
+func IterTokensOf(toks []Token, tokTypes []TokenType, fn func(i int, tok Token) error) error {
+	for i, tok := range toks {
+		if slices.Contains(tokTypes, tok.Type) {
+			err := fn(i, tok)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
 
 
 
