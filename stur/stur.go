@@ -49,3 +49,24 @@ func SplitWithStringPreserve(s, delim string) []string {
 	}
 	return parts
 }
+
+func RemoveLastChar(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	return s[:len(s)-1]
+}
+
+func LastChar(s string) string {
+	if len(s) == 0 {
+		return ""
+	}
+	return string(s[len(s)-1])
+}
+
+func StartsWith(s, p string) bool {
+	if len(p) > len(s) {
+			return false
+	}
+	return s[:len(p)] == p
+}

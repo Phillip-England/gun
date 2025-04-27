@@ -256,3 +256,17 @@ func (l *Lexer) FlushSplitWithStringPreserve(delim string) []string {
 	}
 	return parts
 }
+
+// WalkToUnescaped steps forward until the target character is found unescaped (not preceded by a backslash).
+func (l *Lexer) WalkToUnescaped(target string) {
+	for {
+		if l.Done {
+			return
+		}
+		// Check if current char matches and is not escaped
+		if l.Current == target && l.Peek(-1, false) != `\` {
+			return
+		}
+		l.Step()
+	}
+}
