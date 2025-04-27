@@ -1,4 +1,4 @@
-module github.com/phillip-england/gun
+module github.com/phillip-england/gtml
 
 go 1.23.3
 

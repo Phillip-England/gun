@@ -15,8 +15,6 @@ func Squeeze(s string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(s, "\t", ""), "\n", ""), " ", "")
 }
 
-// SplitWithStringPreserve splits a string by the delimiter
-// but preserves delimiters inside quotes.
 func SplitWithStringPreserve(s, delim string) []string {
 	var parts []string
 	var b strings.Builder
