@@ -55,22 +55,71 @@ func TokenizeStageOne(s string) ([]Token, error) {
 			break
 		}
 
-		// jumping to the first "<"
+		// handling our first iteration through the input stream
 		if len(toks) == 0 {
-			l.SkipWhitespace()
-			if l.Char() != '<' {
-				return toks, fmt.Errorf(`SYNTAX ERR: expected first character to be "<" but found "%s"`, l.Char())
+			l.SkipWhitespace() // leap to first real character
+
+			firstChar := l.Char()
+
+			switch firstChar {
+				// we found the start of an html element
+				case '<': {
+					l.MarkPos()
+					l.WalkToWithQuoteSkip('>')
+					l.CollectFromMark()
+					s := l.FlushBuffer()
+					sq := strings.ReplaceAll(s, " ", "")
+					voidElementNames := []string{"<area", "<base", "<br", "<col", "<embed", "<hr", "<img", "<input", "<link", "<meta", "<param", "<source", "<track", "<wbr", "<else"}
+					isVoidElement := false
+					for _, voidName := range voidElementNames {
+						if strings.Contains(sq, voidName) && sq[0] == '<' {
+							isVoidElement = true
+						}
+					}
+					if isVoidElement {
+						toks = append(toks, Token{
+							Lexeme: s,
+							Type: TokenHtmlSelfClosingTag,
+						})
+						l.Step()
+						continue
+					}
+					if len(sq) < 2 {
+						return toks, fmt.Errorf(`SYNTAX ERR: found html tag with less then 2 characters (not counting spaces): %s`, s)
+					}
+					if string(sq[1]) == "/" {
+						toks = append(toks, Token{
+							Lexeme: s,
+							Type: TokenHtmlCloseTag,
+						})
+					} else {
+						toks = append(toks, Token{
+							Lexeme: s,
+							Type: TokenHtmlOpenTag,
+						})
+					}
+					l.Step()
+					continue
+				}
+				// assume we encountered an html text node
+				default: {
+					l.MarkPos()
+					l.WalkToWithQuoteSkip('<')
+					if l.Char() == '<' {
+						l.StepBack()
+					}
+					l.CollectFromMark()
+					buf := l.FlushBuffer()
+					toks = append(toks, Token{
+						Lexeme: buf,
+						Type: TokenHtmlTextNode,
+					})
+					l.Step()
+					continue
+				}
 			}
-			l.MarkPos()
-			l.WalkToWithQuoteSkip('>')
-			l.CollectFromMark()
-			s := l.FlushBuffer()
-			toks = append(toks, Token{
-				Lexeme: s,
-				Type: TokenHtmlOpenTag,
-			})
-			l.Step()
-			continue
+
+
 		}
 
 		prevTok := toks[len(toks)-1] // used to determine where we are
@@ -103,13 +152,10 @@ func TokenizeStageOne(s string) ([]Token, error) {
 			l.CollectFromMark()
 			s := l.FlushBuffer()
 			sq := strings.ReplaceAll(s, " ", "")
-			voidElementNames := []string{"<area", "<base", "<br", "<col", "<embed", "<hr", "<img", "<input", "<link", "<meta", "<param", "<source", "<track", "<wbr"}
+			voidElementNames := []string{"<area", "<base", "<br", "<col", "<embed", "<hr", "<img", "<input", "<link", "<meta", "<param", "<source", "<track", "<wbr", "<else"}
 			isVoidElement := false
 			for _, voidName := range voidElementNames {
-				if len(voidName)+1 > len(sq)-1 {
-					continue
-				}
-				if stur.StartsWith(sq, voidName) {
+				if strings.Contains(sq, voidName) && sq[0] == '<' {
 					isVoidElement = true
 				}
 			}
@@ -338,19 +384,19 @@ func TokenizeStageThree(toks []Token) ([]Token, error) {
 	out := []Token{}
 	for _, tok := range toks {
 
-		if tok.Type == TokenHtmlRawText {
-			s := tok.Lexeme
-			s = stur.Squeeze(s)
-			if s == "::?" {
-				out = append(out, Token{
-					Lexeme: tok.Lexeme,
-					Type: TokenHtmlElseSymbol,
-				})
-			} else {
-				out = append(out, tok)
-			}
-			continue
-		}
+		// if tok.Type == TokenHtmlRawText {
+		// 	s := tok.Lexeme
+		// 	s = stur.Squeeze(s)
+		// 	if s == "::?" {
+		// 		out = append(out, Token{
+		// 			Lexeme: tok.Lexeme,
+		// 			Type: TokenHtmlElseSymbol,
+		// 		})
+		// 	} else {
+		// 		out = append(out, tok)
+		// 	}
+		// 	continue
+		// }
 
 		if tok.Type == TokenHtmlAttribute {
 			parts := strings.Split(tok.Lexeme, "=")
@@ -491,3 +537,8 @@ func Construct(toks []Token) string {
 	}
 	return out
 }
+
+
+
+
+

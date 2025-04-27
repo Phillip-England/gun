@@ -1,6 +1,9 @@
 package token
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 type TokenWalker struct {
 	Tokens  []Token
@@ -53,6 +56,18 @@ func (tw *TokenWalker) Step() {
 	tw.Current = tw.Tokens[tw.Pos]
 }
 
+func (tw *TokenWalker) StepBack() {
+	if tw.Pos-1 < 0 {
+		// Already at the beginning; can't step back.
+		tw.Done = true
+		return
+	}
+	tw.Pos -= 1
+	tw.Current = tw.Tokens[tw.Pos]
+	tw.Done = false // If you had marked it done stepping forward, stepping back should re-enable it
+}
+
+
 func (tw *TokenWalker) Draw() Token {
 	return tw.Current
 }
@@ -73,6 +88,133 @@ func (tw *TokenWalker) WalkTo(search TokenType) {
 	}
 }
 
+func (tw *TokenWalker) WalkUntil(searches []TokenType) {
+	for !tw.Done {
+		if slices.Contains(searches, tw.Type()) {
+			return
+		}
+		tw.Step()
+	}
+}
+
+// WalkToEnd steps forward until the end of the tokens.
+func (tw *TokenWalker) WalkToEnd() {
+	for {
+		if tw.Done {
+			return
+		}
+		tw.Step()
+	}
+}
+
+func (tw *TokenWalker) WalkBack(target TokenType) {
+	for {
+		if tw.Pos <= 0 {
+			tw.Done = true
+			return
+		}
+		if tw.Type() == target {
+			return
+		}
+		tw.StepBack()
+	}
+}
+
+func (tw *TokenWalker) WalkBackUntil(targets []TokenType) {
+	for {
+		if tw.Pos <= 0 {
+			tw.Done = true
+			return
+		}
+		if slices.Contains(targets, tw.Type()) {
+			return
+		}
+		tw.StepBack()
+	}
+}
+
+
+func (tw *TokenWalker) SplitIntoElementStrings() ([]string, error) {
+	out := []string{}
+	for {
+		if tw.Done {
+			break
+		}
+		if tw.Matches([]TokenType{
+			TokenHtmlOpenTagOpeningBracket,
+			TokenHtmlSelfClosingTagOpeningBracket,
+		}) {
+			tw.MarkPos()
+			err := tw.WalkToElementClose()
+			if err != nil {
+				return out, err
+			}
+			out = append(out, Construct(tw.FlushFromMarkedPos()))
+		}
+		tw.Step()
+	}
+	return out, nil
+}
+
+func (tw *TokenWalker) SplitIntoChildTokenMatrix() ([][]Token, error) {
+	tokMatrix := [][]Token{}
+	elms, err := tw.SplitIntoElementStrings()
+	if err != nil {
+		return tokMatrix, err
+	}
+	for _, elm := range elms {
+		toks, err := Tokenize(elm)
+		if err != nil {
+			return tokMatrix, err
+		}
+		tokMatrix = append(tokMatrix, toks)
+	}
+	return tokMatrix, nil
+}
+
+func (tw *TokenWalker) WalkToElementClose() (error) {
+	if !tw.Matches([]TokenType{
+		TokenHtmlOpenTagOpeningBracket,
+		TokenHtmlSelfClosingTagOpeningBracket,
+	}) {
+		return fmt.Errorf(`TOKENWALKER ERROR: attempted to walk to element close, but that function may only be called if your cursor is position directly at an elements starting bracket, you were at token of type: %s`, tw.Type())
+	}
+	bracketType := tw.Type()
+	tw.Step()
+	if !tw.Matches([]TokenType{
+		TokenHtmlOpenTagName,
+		TokenHtmlSelfClosingTagName,
+	}) {
+		return fmt.Errorf(`TOKENWALKER ERROR: found ourselves at an opening tag bracket, but then took a step, and failed to find a tag name: %s`, tw.Type())
+	}
+	if bracketType == TokenHtmlSelfClosingTagOpeningBracket {
+		tw.WalkUntil([]TokenType{TokenHtmlSelfClosingTagClosingBracket})
+		return nil
+	}
+	startTagName := tw.Draw().Lexeme
+
+
+	count := 0
+	for {
+		// if tw.Done {
+		// 	return fmt.Errorf(`TOKENWALKER ERROR: was searching for the closing element with the tagname: %s, but failed to locate it`, startTagName)
+		// }
+		if tw.Type() == TokenHtmlOpenTagName && tw.Draw().Lexeme == startTagName {
+			count+=1
+		}
+		if tw.Type() == TokenHtmlCloseTagName && tw.Draw().Lexeme == startTagName {
+			count-=1
+		}
+		if count == 0 && startTagName == tw.Draw().Lexeme {
+			tw.Step()
+			break
+		}
+		tw.Step()
+	}
+	return nil
+}
+
+
 func (tw *TokenWalker) Peek(n int) (Token, bool) {
 	target := tw.Pos + n
 	if target < 0 || target >= len(tw.Tokens) {
@@ -91,4 +233,13 @@ func (tw *TokenWalker) Expect(expected TokenType) error {
 		return fmt.Errorf("expect: expected %v but found %v", expected, tw.Type())
 	}
 	return nil
+}
+
+func (tw *TokenWalker) Matches(types []TokenType) bool {
+	for _, t := range types {
+		if tw.Type() == t {
+			return true
+		}
+	}
+	return false
 }

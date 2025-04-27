@@ -10,7 +10,9 @@ func main() {
 	logi.Clear()
 
 	toks, err := token.Tokenize(`
-		<h1 name='%s name%' age='25'>hello, %s name%!</h1>
+		<h1 name='%s name%' age='25%'>
+			<h1>hello, %s name%!</h1>
+		</h1>
 		<p>wtf is up! %s age%</p>
 		<input type='text'>
 		<ul _for="friend in user.Friend Friend[]">
@@ -25,11 +27,10 @@ func main() {
 		</ul>
 	`)
 	if err != nil {
-		panic(err)
+	panic(err)
 	}
 
-	out := token.Construct(toks)
+	logi.Log(token.Construct(toks))
 
-	logi.Log(out)
 
 }
