@@ -9,7 +9,7 @@ func main() {
 
 	logi.Clear()
 
-	toks, err := token.Tokenize(`
+	toks, err := token.TokenizeStageOne(`
 		<h1 name='%s name%' age='25%'>
 			<h1>hello, %s name%!</h1>
 		</h1>
@@ -30,16 +30,13 @@ func main() {
 	panic(err)
 	}
 
-	// logi.Log(token.Construct(toks))
-
-	elms, err := token.SplitTokensIntoElementStrings(toks)
-	if err != nil {
-		panic(err)
-	}
-
-	for _, elm := range elms {
-		logi.Log("==========\n", elm)
+	for _, tok := range toks {
+		logi.Log(tok.String())
 	}
 
 
 }
+
+
+
+
