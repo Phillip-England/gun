@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/phillip-england/gun/lexer"
-	"github.com/phillip-england/gun/logi"
 	"github.com/phillip-england/gun/stur"
 )
 
@@ -59,11 +58,11 @@ func TokenizeStageOne(s string) ([]Token, error) {
 		// jumping to the first "<"
 		if len(toks) == 0 {
 			l.SkipWhitespace()
-			if l.Char() != "<" {
+			if l.Char() != '<' {
 				return toks, fmt.Errorf(`SYNTAX ERR: expected first character to be "<" but found "%s"`, l.Char())
 			}
 			l.MarkPos()
-			l.WalkToWithQuoteSkip(">")
+			l.WalkToWithQuoteSkip('>')
 			l.CollectFromMark()
 			s := l.FlushBuffer()
 			toks = append(toks, Token{
@@ -78,7 +77,7 @@ func TokenizeStageOne(s string) ([]Token, error) {
 
 		if prevTok.Type == TokenHtmlOpenTag || prevTok.Type == TokenHtmlCloseTag || prevTok.Type == TokenHtmlSelfClosingTag {
 			l.MarkPos()
-			l.WalkToWithQuoteSkip("<")
+			l.WalkToWithQuoteSkip('<')
 			l.StepBack()
 			l.CollectFromMark()
 			s := l.FlushBuffer()
@@ -100,7 +99,7 @@ func TokenizeStageOne(s string) ([]Token, error) {
 
 		if prevTok.Type == TokenHtmlTextNode || prevTok.Type == TokenHtmlTextWhiteSpace {
 			l.MarkPos()
-			l.WalkToWithQuoteSkip(">")
+			l.WalkToWithQuoteSkip('>')
 			l.CollectFromMark()
 			s := l.FlushBuffer()
 			sq := strings.ReplaceAll(s, " ", "")
@@ -293,7 +292,7 @@ func TokenizeStageTwo(toks []Token) ([]Token, error) {
 					break
 				}
 				l.MarkPos()
-				l.WalkToUnescaped("%")
+				l.WalkToUnescaped('%')
 				if l.Peek(2, true) == "%s " || l.Peek(2, true) == "%t " || l.Peek(2, true) == "%d " {
 					l.CollectFromMark()
 					s := l.FlushBuffer()
@@ -306,7 +305,7 @@ func TokenizeStageTwo(toks []Token) ([]Token, error) {
 					}
 					l.MarkPos()
 					l.Step()
-					l.WalkToUnescaped("%")
+					l.WalkToUnescaped('%')
 					l.CollectFromMark()
 					s = l.FlushBuffer()
 					out = append(out, Token{
@@ -426,7 +425,7 @@ func TokenizeStageFour(toks []Token) ([]Token, error) {
 					break
 				}
 				l.MarkPos()
-				l.WalkToUnescaped("%")
+				l.WalkToUnescaped('%')
 				if l.Peek(2, true) == "%s " || l.Peek(2, true) == "%t " || l.Peek(2, true) == "%d " {
 					l.CollectFromMark()
 					s := l.FlushBuffer()
@@ -439,7 +438,7 @@ func TokenizeStageFour(toks []Token) ([]Token, error) {
 					}
 					l.MarkPos()
 					l.Step()
-					l.WalkToUnescaped("%")
+					l.WalkToUnescaped('%')
 					l.CollectFromMark()
 					s = l.FlushBuffer()
 					if len(s) < 2 {
@@ -489,7 +488,6 @@ func Construct(toks []Token) string {
 	out := ""
 	for _, tok := range toks {
 		out = out + tok.Lexeme
-		logi.Log(tok.String())
 	}
 	return out
 }
