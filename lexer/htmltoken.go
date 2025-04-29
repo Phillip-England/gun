@@ -178,7 +178,7 @@ func ShedOuterHtml(toks []Token) ([]Token, error) {
 // GetTagName extracts the tag name from an HtmlOpen or HtmlClose token's lexeme.
 // Strips angle brackets, slashes, and attributes, returning just the tag name.
 func GetTagName(tok Token) (string, error) {
-	if HtmlTokenType(tok.GetType()) != HtmlOpen && HtmlTokenType(tok.GetType()) != HtmlClose {
+	if HtmlTokenType(tok.GetType()) != HtmlOpen && HtmlTokenType(tok.GetType()) != HtmlClose && HtmlTokenType(tok.GetType()) != HtmlVoid {
 		return "", fmt.Errorf(`tag names can only be extracted from HtmlOpen and HtmlClose but you attempted to extract on: %s`, tok)
 	}
 	s := tok.GetLexeme()
@@ -210,14 +210,15 @@ func firstPass(input []rune) ([]Token, error) {
 			l.Mark()
 			l.WalkUntilSkipQuotes('<')
 			l.StepBack()
-			if len(stur.Squeeze(string(l.FlushFromMark()))) == 0 {
+			buf := string(l.FlushFromMark())
+			if len(stur.Squeeze(buf)) == 0 {
 				toks = append(toks, HtmlToken{
-					Lexeme: string(l.FlushFromMark()),
+					Lexeme: buf,
 					Type:   EmptySpace,
 				})
 			} else {
 				toks = append(toks, HtmlToken{
-					Lexeme: string(l.FlushFromMark()),
+					Lexeme: buf,
 					Type:   Text,
 				})
 			}
@@ -230,14 +231,15 @@ func firstPass(input []rune) ([]Token, error) {
 				return toks, fmt.Errorf(`SYNTAX ERROR: failed to close html element: %s`, string(input))
 			}
 			buf := string(l.FlushFromMark())
-			if strings.Contains(buf, "/") {
+			sq := stur.Squeeze(buf)
+			if len(sq) > 2 && sq[1] == '/' {
 				toks = append(toks, HtmlToken{
-					Lexeme: string(l.FlushFromMark()),
+					Lexeme: buf,
 					Type:   HtmlClose,
 				})
 			} else {
 				toks = append(toks, HtmlToken{
-					Lexeme: string(l.FlushFromMark()),
+					Lexeme: buf,
 					Type:   HtmlOpen,
 				})
 			}

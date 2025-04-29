@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/phillip-england/gtml/lexer"
 	"github.com/phillip-england/gtml/logi"
 	"github.com/phillip-england/gtml/parser"
@@ -32,7 +34,11 @@ func main() {
 	}
 
 	parser.WalkNodes(ast, func(i int, n parser.Node) error {
-		logi.Log(n.GetInfo().Value)
+		if n.GetInfo().Type == parser.Text {
+			return nil
+		}
+		attr, _ := parser.GetAttribute(n, "type")
+		fmt.Println(attr.Name, attr.Value)
 		return nil
 	})
 

@@ -1,16 +1,16 @@
 package parser
 
-type NodeVoidElement struct {
+type NodeVoid struct {
 	Info *NodeInfo	
 }
 
-func (n *NodeVoidElement) GetInfo() *NodeInfo {
+func (n *NodeVoid) GetInfo() *NodeInfo {
 	return n.Info
 }
 
-func NewNodeVoidElement(s string, t NodeType) *NodeVoidElement {
+func NewNodeVoid(s string, t NodeType) *NodeVoid {
 	info := NewNodeInfo(s, t)
-	return &NodeVoidElement{
+	return &NodeVoid{
 		Info: info,
 	}
 }
