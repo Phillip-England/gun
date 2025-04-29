@@ -68,3 +68,12 @@ func StartsWith(s, p string) bool {
 	}
 	return s[:len(p)] == p
 }
+
+// ReplaceLast replaces the last occurrence of oldChar with newStr in the input string s.
+func ReplaceLast(s string, oldChar rune, newStr string) string {
+	idx := strings.LastIndex(s, string(oldChar))
+	if idx == -1 {
+		return s // character not found
+	}
+	return s[:idx] + newStr + s[idx+1:]
+}
