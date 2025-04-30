@@ -33,14 +33,12 @@ func main() {
 		panic(err)
 	}
 
+	fmt.Println(len(ast.GetInfo().Children))
 	parser.WalkNodes(ast, func(i int, n parser.Node) error {
-		if n.GetInfo().Type == parser.Text {
-			return nil
-		}
-		attr, _ := parser.GetAttribute(n, "type")
-		fmt.Println(attr.Name, attr.Value)
+		logi.Log(n.GetInfo().Value)
 		return nil
 	})
+
 
 
 }

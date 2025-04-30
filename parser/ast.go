@@ -14,9 +14,6 @@ func (elm *Document) GetInfo() *NodeInfo {
 	return elm.Info
 }
 
-
-
-
 func NewAst(toks []lexer.Token) (Node, error) {
 	doc, toks, err := initDoc(toks)
 	if err != nil {
@@ -71,6 +68,9 @@ func initDoc(toks []lexer.Token) (*Document, []lexer.Token, error) {
 	return doc, toks, nil
 }
 
+// FIRST PASS IS RUNNING FOREVER
+// NEED TO CREATE GOOD DOM HERE
+
 func firstPass(elm Node, toks []lexer.Token) (Node, error) {
 	isSelfContained, err := lexer.IsSelfContained(toks)
 	if err != nil {
@@ -80,7 +80,7 @@ func firstPass(elm Node, toks []lexer.Token) (Node, error) {
 		if len(toks) == 1 {
 			return elm, nil
 		}
-		child := NewNodeNoraml(lexer.Construct(toks), Normal)
+		child := NewNodeNormal(lexer.Construct(toks), Normal)
 		AppendChild(elm, child)
 	}
 	innerToks, err := lexer.ShedOuterHtml(toks)
@@ -90,12 +90,17 @@ func firstPass(elm Node, toks []lexer.Token) (Node, error) {
 	for i, tok := range innerToks {
 		if tok.GetType() == string(lexer.HtmlVoid) {
 			child := NewNodeVoid(tok.GetLexeme(), Void)
+			child, err := firstPass(child, innerToks)
+			if err != nil {
+				return elm, err
+			}
 			AppendChild(elm, child)
 			continue
 		}
 		if tok.GetType() == string(lexer.Text) {
-			child := NewNodeText(tok.GetLexeme(), Text)
-			AppendChild(elm, child)
+			// child := NewNodeText(tok.GetLexeme(), Text)
+			// AppendChild(elm, child)
+			AppendTextNode(elm, tok.GetLexeme())
 			continue
 		}
 		if tok.GetType() == string(lexer.HtmlOpen) {
@@ -104,12 +109,12 @@ func firstPass(elm Node, toks []lexer.Token) (Node, error) {
 				return elm, err
 			}
 			elmToks := innerToks[i:endTagIndex+1]
-			child := NewNodeNoraml(lexer.Construct(elmToks), Normal)
-			childElm, ok := any(child).(Node)
-			if !ok {
-				return childElm, fmt.Errorf("failed to assert Document to Element")
+			child := NewNodeNormal(lexer.Construct(elmToks), Normal)
+			child, err = firstPass(child, elmToks)
+			if err != nil {
+				return elm, err
 			}
-			AppendChild(elm, childElm)
+			AppendChild(elm, child)
 			continue
 		}
 		

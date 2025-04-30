@@ -6,5 +6,4 @@ const (
 	Root NodeType = "Root"
 	Void NodeType = "Void"
 	Normal NodeType = "Normal"
-	Text NodeType = "Text"
 )
