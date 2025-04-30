@@ -33,54 +33,43 @@ func GetTagName(n Node) (string, error) {
 	return name, nil
 }
 
-func GetAttributeSlice(n Node) ([]string, error) {
-	tagname, err := GetTagName(n)
-	if err != nil {
-		return []string{}, err
+func GetAttributes(n Node) ([]Attribute) {
+	val := n.GetInfo().Value
+	val = strings.Replace(val, "<", "", 1)
+	val = strings.TrimSpace(val)
+	bits := strings.Split(val, " ")
+	if len(bits) == 1 || len(bits) == 0 {
+		return []Attribute{}
 	}
-	toks, err := lexer.TokenizeHtml([]rune(n.GetInfo().Value))
-	if err != nil {
-		return []string{}, err
+	potentialAttrs := stur.SplitWithStringPreserve(strings.Join(bits, " "), ">")
+	potentialAttrs = strings.Split(potentialAttrs[0], " ")
+	if len(potentialAttrs) == 1 || len(potentialAttrs) == 0 {
+		return []Attribute{}
 	}
-	s := toks[0].GetLexeme()
-	s = strings.Replace(s, "<", "", 1)
-	s = stur.ReplaceLast(s, '>', "")
-	s = strings.Replace(s, tagname, "", 1)
-	parts := strings.Split(s, " ")
-	filtered := []string{}
-	for _, part := range parts {
-		if stur.Squeeze(part) == "" {
-			continue
-		}
-		if len(part) == 1 {
-			continue
-		}
-		filtered = append(filtered, part)
-	}
-	return filtered, nil
-}
+	potentialAttrs = potentialAttrs[1:]
 
-func GetRawAttribute(n Node, attrName string) (string, error) {
-	attrSlice, err := GetAttributeSlice(n)
-	if err != nil {
-		return "", err
-	}
-	for _, rawAttr := range attrSlice {
-		if !strings.Contains(rawAttr, "=") {
-			if attrName == rawAttr {
-				return rawAttr, nil
-			}
+	attrs := []Attribute{}
+	for _, attr := range potentialAttrs {
+		if !strings.Contains(attr, "=") {
 			continue
 		}
-		parts := strings.Split(rawAttr, "=")
-		if len(parts) < 2 {
-			continue
+		parts := strings.Split(attr, "=")
+		if len(parts) == 2 {
+			name := parts[0]
+			val := parts[1]
+			attrs = append(attrs, Attribute{
+				Name: name,
+				Value: val,
+			})
 		}
-		if parts[0] == attrName {
-			return rawAttr, nil
+		if len(parts) == 1 {
+			attrs = append(attrs, Attribute{
+				Name: attr,
+				Value: "",
+			})
 		}
 	}
-	return "", nil
+	return attrs
 }
 
 type Attribute struct {
@@ -89,27 +78,13 @@ type Attribute struct {
 }
 
 func GetAttribute(n Node, attrName string) (Attribute, bool) {
-	attr := &Attribute{}
-	rawAttr, err := GetRawAttribute(n, attrName)
-	if err != nil {
-		return *attr, false
+	attrs := GetAttributes(n)
+	for _, attr := range attrs {
+		if attr.Name == attrName {
+			return attr, true
+		}
 	}
-	if !strings.Contains(rawAttr, "=") {
-		if rawAttr != "" {
-			attr.Name = rawAttr
-			return *attr, true
-		}	
-	}
-	rawAttr = strings.Replace(rawAttr, "=", " ", 1)
-	parts := strings.Split(rawAttr, " ")
-	name := ""
-	value := ""
-	if len(parts) > 1 {
-		name = parts[0]
-		value = strings.Join(parts[1:], " ")
-	}
-	attr.Name = name
-	attr.Value = value
-	return *attr, true
+	return Attribute{}, false
 }
+
 
