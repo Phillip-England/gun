@@ -1,8 +1,6 @@
 package parser
 
 import (
-	"fmt"
-
 	"github.com/phillip-england/gtml/lexer"
 )
 
@@ -15,109 +13,135 @@ func (elm *Document) GetInfo() *NodeInfo {
 }
 
 func NewAst(toks []lexer.Token) (Node, error) {
-	doc, toks, err := initDoc(toks)
+	var doc Node
+	doc = &Document{
+		Info: NewNodeInfo("", Root),
+	}
+	doc, err := firstPass(doc, toks)
 	if err != nil {
 		return doc, err
 	}
-	docElm, ok := any(doc).(Node)
-	if !ok {
-		return docElm, fmt.Errorf("failed to assert Document to Element")
-	}
-
-	docElm, err = firstPass(docElm, toks)
-	if err != nil {
-		return docElm, err
-	}
-	return docElm, nil
-
+	return doc, nil
 }
 
-
-func WalkNodes(node Node, fn func(i int, n Node) error) error {
-	for i, child := range node.GetInfo().Children {
-		err := fn(i, child)
-		if err != nil {
-			return err
-		}
-		WalkNodes(child, fn)
-	}
-	return nil
-}
-
-func initDoc(toks []lexer.Token) (*Document, []lexer.Token, error) {
-	toks = lexer.RemoveEmptySpace(toks)
-	isSelfContainer, err := lexer.IsSelfContained(toks)
-	if err != nil {
-		return nil, toks, err
-	}
-	if !isSelfContainer {
-		spanStart := lexer.HtmlToken{
-			Lexeme: "<span>",
-			Type:   lexer.HtmlOpen,
-		}
-		spanEnd := lexer.HtmlToken{
-			Lexeme: "</span>",
-			Type:   lexer.HtmlClose,
-		}
-		toks = append(toks, spanEnd)
-		toks = append([]lexer.Token{spanStart}, toks...)
-	}
-	doc := &Document{
-		Info: NewNodeInfo(lexer.Construct(toks), Root),
-	}
-	return doc, toks, nil
-}
 
 // FIRST PASS IS RUNNING FOREVER
 // NEED TO CREATE GOOD DOM HERE
 
-func firstPass(elm Node, toks []lexer.Token) (Node, error) {
-	isSelfContained, err := lexer.IsSelfContained(toks)
-	if err != nil {
-		return elm, err
-	}
-	if isSelfContained {
-		if len(toks) == 1 {
-			return elm, nil
+func firstPass(n Node, toks []lexer.Token) (Node, error) {
+	switch n.GetInfo().Type {
+	case Normal:
+		innerToks, err := lexer.ShedOuterHtml(toks)
+		if err != nil {
+			return n, err
 		}
-		child := NewNodeNormal(lexer.Construct(toks), Normal)
-		AppendChild(elm, child)
-	}
-	innerToks, err := lexer.ShedOuterHtml(toks)
-	if err != nil {
-		return elm, err
-	}
-	for i, tok := range innerToks {
-		if tok.GetType() == string(lexer.HtmlVoid) {
-			child := NewNodeVoid(tok.GetLexeme(), Void)
-			child, err := firstPass(child, innerToks)
-			if err != nil {
-				return elm, err
+		for i := 0; i < len(innerToks); {
+			tok := innerToks[i]
+			switch tok.GetType() {
+			case lexer.HtmlOpen:
+				_, endTagI, err := lexer.GetClosingTag(tok, i, innerToks)
+				if err != nil {
+					return n, err
+				}
+				child, err := firstPass(
+					NewNodeNormal(lexer.Construct(innerToks[i:endTagI+1]), Normal),
+					innerToks[i:endTagI+1],
+				)
+				if err != nil {
+					return n, err
+				}
+				AppendChild(n, child)
+				i = endTagI + 1
+				continue
+			case lexer.HtmlVoid:
+				child, err := firstPass(NewNodeVoid(tok.GetLexeme(), Void), []lexer.Token{tok})
+				if err != nil {
+					return n, err
+				}
+				AppendChild(n, child)
+				i++
+				continue
+			case lexer.EmptySpace:
+				AppendTextNode(n, tok.GetLexeme())
+				i++
+				continue
+			case lexer.Text:
+				AppendTextNode(n, tok.GetLexeme())
+				i++
+				continue
+			default:
+				// Handle other tokens if necessary
+				i++
 			}
-			AppendChild(elm, child)
-			continue
 		}
-		if tok.GetType() == string(lexer.Text) {
-			// child := NewNodeText(tok.GetLexeme(), Text)
-			// AppendChild(elm, child)
-			AppendTextNode(elm, tok.GetLexeme())
-			continue
+
+
+
+	case Root:
+		isSelfContained, err := lexer.IsSelfContained(toks)
+		if err != nil {
+			return n, err
 		}
-		if tok.GetType() == string(lexer.HtmlOpen) {
-			_, endTagIndex, err := lexer.GetClosingTag(tok, i, innerToks)
+		if isSelfContained {
+			child, err := firstPass(NewNodeNormal(lexer.Construct(toks), Normal), toks)
 			if err != nil {
-				return elm, err
+				return n, err
 			}
-			elmToks := innerToks[i:endTagIndex+1]
-			child := NewNodeNormal(lexer.Construct(elmToks), Normal)
-			child, err = firstPass(child, elmToks)
-			if err != nil {
-				return elm, err
-			}
-			AppendChild(elm, child)
-			continue
+			AppendChild(n, child)
+			break
 		}
-		
+		for i := 0; i < len(toks); {
+			tok := toks[i]
+			switch tok.GetType() {
+			case lexer.HtmlOpen:
+				_, endTagI, err := lexer.GetClosingTag(tok, i, toks)
+				if err != nil {
+					return n, err
+				}
+				child, err := firstPass(
+					NewNodeNormal(lexer.Construct(toks[i:endTagI+1]), Normal),
+					toks[i:endTagI+1],
+				)
+				if err != nil {
+					return n, err
+				}
+				AppendChild(n, child)
+				i = endTagI + 1
+				continue
+			case lexer.HtmlVoid:
+				child, err := firstPass(NewNodeVoid(tok.GetLexeme(), Void), []lexer.Token{tok})
+				if err != nil {
+					return n, err
+				}
+				AppendChild(n, child)
+				i++
+				continue
+			case lexer.EmptySpace:
+				AppendTextNode(n, tok.GetLexeme())
+				i++
+				continue
+			case lexer.Text:
+				AppendTextNode(n, tok.GetLexeme())
+				i++
+				continue
+			default:
+				// Handle other tokens if necessary
+				i++
+			}
+		}
 	}
-	return elm, nil
+	return n, nil
+}
+
+
+func Walk(n Node, cb func(Node) error) error {
+	if err := cb(n); err != nil {
+		return err
+	}
+	for _, child := range n.GetInfo().Children {
+		if err := Walk(child, cb); err != nil {
+			return err
+		}
+	}
+	return nil
 }

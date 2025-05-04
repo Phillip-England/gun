@@ -16,7 +16,7 @@ func AppendChild(parent Node, child Node) {
 }
 
 func AppendTextNode(parent Node, text string) {
-	parent.GetInfo().TextContent = text
+	parent.GetInfo().TextContent = parent.GetInfo().TextContent+text
 }
 
 func GetTagName(n Node) (string, error) {

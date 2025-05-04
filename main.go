@@ -33,12 +33,16 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println(len(ast.GetInfo().Children))
-	parser.WalkNodes(ast, func(i int, n parser.Node) error {
-		logi.Log(n.GetInfo().Value)
+	count := 0
+	err = parser.Walk(ast, func(n parser.Node) error {
+		count+=1
 		return nil
 	})
+	fmt.Println(count)
+	if err != nil {
+		panic(err)
+	}
 
-
+	
 
 }

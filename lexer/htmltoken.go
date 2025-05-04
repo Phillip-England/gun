@@ -28,8 +28,8 @@ func (tok HtmlToken) GetLexeme() string {
 }
 
 // GetType returns the type of the token as a string.
-func (tok HtmlToken) GetType() string {
-	return string(tok.Type)
+func (tok HtmlToken) GetType() HtmlTokenType {
+	return tok.Type
 }
 
 // TokenizeHtml tokenizes a slice of runes representing HTML input
@@ -55,7 +55,7 @@ func TokenizeHtml(input []rune) ([]Token, error) {
 func secondPass(toks []Token) ([]Token, error) {
 	out := []Token{}
 	for i, tok := range toks {
-		if tok.GetType() != string(HtmlOpen) {
+		if tok.GetType() != HtmlOpen {
 			out = append(out, tok)
 			continue
 		}
@@ -80,10 +80,10 @@ func secondPass(toks []Token) ([]Token, error) {
 // to the given HtmlOpen token, respecting nesting depth.
 // Returns nil if no matching closing tag is found.
 func GetClosingTag(tok Token, i int, toks []Token) (Token, int, error) {
-	if tok.GetType() == string(HtmlVoid) {
+	if tok.GetType() == HtmlVoid {
 		return nil, -1, nil
 	}
-	if tok.GetType() != string(HtmlOpen) {
+	if tok.GetType() != HtmlOpen {
 		return tok, -1, fmt.Errorf(`attempted to extract the closing tag from an invalid token: %s`, tok.GetLexeme())
 	}
 	name, err := GetTagName(tok)
@@ -95,7 +95,7 @@ func GetClosingTag(tok Token, i int, toks []Token) (Token, int, error) {
 		if i1 <= i {
 			continue
 		}
-		if tok1.GetType() != string(HtmlOpen) && tok1.GetType() != string(HtmlClose) {
+		if tok1.GetType() != HtmlOpen && tok1.GetType() != HtmlClose {
 			continue
 		}
 		name1, err := GetTagName(tok1)
@@ -105,13 +105,13 @@ func GetClosingTag(tok Token, i int, toks []Token) (Token, int, error) {
 		if name != name1 {
 			continue
 		}
-		if tok1.GetType() == string(HtmlOpen) {
+		if tok1.GetType() == HtmlOpen {
 			found += 1
 		}
-		if tok1.GetType() == string(HtmlClose) {
+		if tok1.GetType() == HtmlClose {
 			found -= 1
 		}
-		if found == 0 && tok1.GetType() == string(HtmlClose) {
+		if found == 0 && tok1.GetType() == HtmlClose {
 			return tok1, i1, nil
 		}
 	}
@@ -131,11 +131,12 @@ func IsSelfContained(toks []Token) (bool, error) {
 	return true, nil
 }
 
+
 // RemoveEmptySpace filters out all tokens of type EmptySpace from the provided token slice.
 func RemoveEmptySpace(toks []Token) []Token {
 	filtered := make([]Token, 0, len(toks))
 	for _, tok := range toks {
-		if tok.GetType() != string(EmptySpace) {
+		if tok.GetType() != EmptySpace {
 			filtered = append(filtered, tok)
 		}
 	}
@@ -149,12 +150,12 @@ func ShedOuterHtml(toks []Token) ([]Token, error) {
 		return toks, nil
 	}
 	firstTok := toks[0]
-	if firstTok.GetType() == string(HtmlClose) {
+	if firstTok.GetType() == HtmlClose {
 		return out, fmt.Errorf("you cannot shed the outerhtml of an html closing tag: %s", firstTok.GetType())
 	}
 	filteredToks := []Token{}
 	for _, tok := range toks {
-		if tok.GetType() == string(EmptySpace) {
+		if tok.GetType() == EmptySpace {
 			continue
 		}
 		filteredToks = append(filteredToks, tok)
