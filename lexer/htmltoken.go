@@ -20,6 +20,8 @@ const (
 type HtmlToken struct {
 	Lexeme string
 	Type   HtmlTokenType
+	Line int
+	Column int
 }
 
 // GetLexeme returns the string content of the token.
@@ -32,6 +34,14 @@ func (tok HtmlToken) GetType() HtmlTokenType {
 	return tok.Type
 }
 
+func (tok HtmlToken) GetLine() int {
+	return tok.Line
+}
+
+func (tok HtmlToken) GetColumn() int {
+	return tok.Column
+}
+
 // TokenizeHtml tokenizes a slice of runes representing HTML input
 // into a list of tokens through two passes: raw token extraction
 // and structural classification (e.g., identifying void elements).
@@ -40,7 +50,6 @@ func TokenizeHtml(input []rune) ([]Token, error) {
 	if err != nil {
 		return toks, err
 	}
-
 	toks, err = secondPass(toks)
 	if err != nil {
 		return toks, err
@@ -67,6 +76,8 @@ func secondPass(toks []Token) ([]Token, error) {
 			out = append(out, HtmlToken{
 				Lexeme: tok.GetLexeme(),
 				Type:   HtmlVoid,
+				Line: tok.GetLine(),
+				Column: tok.GetColumn(),
 			})
 		} else {
 			out = append(out, tok)
@@ -216,11 +227,15 @@ func firstPass(input []rune) ([]Token, error) {
 				toks = append(toks, HtmlToken{
 					Lexeme: buf,
 					Type:   EmptySpace,
+					Line: l.Line,
+					Column: l.Column,
 				})
 			} else {
 				toks = append(toks, HtmlToken{
 					Lexeme: buf,
 					Type:   Text,
+					Line: l.Line,
+					Column: l.Column-len(buf),
 				})
 			}
 			l.Step()
@@ -237,11 +252,15 @@ func firstPass(input []rune) ([]Token, error) {
 				toks = append(toks, HtmlToken{
 					Lexeme: buf,
 					Type:   HtmlClose,
+					Line: l.Line,
+					Column: l.Column-len(buf),
 				})
 			} else {
 				toks = append(toks, HtmlToken{
 					Lexeme: buf,
 					Type:   HtmlOpen,
+					Line: l.Line,
+					Column: l.Column-len(buf),
 				})
 			}
 			l.Step()

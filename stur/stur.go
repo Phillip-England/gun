@@ -77,3 +77,36 @@ func ReplaceLast(s string, oldChar rune, newStr string) string {
 	}
 	return s[:idx] + newStr + s[idx+1:]
 }
+
+// LineNumberAt returns the 1-based line number in s for the given index.
+// If index is out of bounds, it returns -1.
+func LineNumberAt(s string, index int) int {
+	if index < 0 || index >= len(s) {
+		return -1
+	}
+	line := 1
+	for i := 0; i < index; i++ {
+		if s[i] == '\n' {
+			line++
+		}
+	}
+	return line
+}
+
+
+// ColumnAt returns the 1-based column number at the given index in s.
+// If the index is out of bounds, it returns -1.
+func ColumnAt(s string, index int) int {
+	if index < 0 || index >= len(s) {
+		return -1
+	}
+	col := 1
+	for i := index - 1; i >= 0; i-- {
+		if s[i] == '\n' {
+			break
+		}
+		col++
+	}
+	return col
+}
+

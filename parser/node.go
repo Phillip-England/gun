@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/phillip-england/gtml/stur"
@@ -17,25 +16,6 @@ func AppendChild(parent Node, child Node) {
 
 func AppendTextNode(parent Node, text string) {
 	parent.GetInfo().TextContent = parent.GetInfo().TextContent+text
-}
-
-func GetTagName(n Node) (string, error) {
-	if n.GetInfo().Type != Normal && n.GetInfo().Type != Void {
-		return "", fmt.Errorf("a tag name can only be extracted from a node of type Normal or Void but you attempted on type: %s", n.GetInfo().Type)
-	}
-	s := n.GetInfo().Value
-	s = strings.Replace(s, "<", "", 1)
-	s = stur.ReplaceLast(s, '>', "")
-	s = stur.ReplaceLast(s, '/', "")
-	parts := strings.Split(s, " ")
-	name := ""
-	for _, part := range parts {
-		sq := stur.Squeeze(part)
-		if sq != "" {
-			name = part
-		}
-	}
-	return name, nil
 }
 
 func GetAttributes(n Node) ([]Attribute) {

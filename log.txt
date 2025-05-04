@@ -1,0 +1,30 @@
+
+	
+	
+		
+
+		
+
+
+
+{ }
+false
+<input type='text'>
+
+{type 'text'}
+true
+<div>
+			<h1>Hello, %s name%!</h1>
+			<p>I am %s age% years old. How old are you?</p>
+		</div>
+
+{ }
+false
+<h1>Hello, %s name%!</h1>
+Hello, %s name%!
+{ }
+false
+<p>I am %s age% years old. How old are you?</p>
+I am %s age% years old. How old are you?
+{ }
+false

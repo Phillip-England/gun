@@ -5,6 +5,8 @@ import "github.com/phillip-england/gtml/logi"
 type Token interface {
 	GetLexeme() string
 	GetType() HtmlTokenType
+	GetLine() int
+	GetColumn() int
 }
 
 func LogTokens(toks []Token) {

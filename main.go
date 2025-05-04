@@ -28,17 +28,24 @@ func main() {
 		panic(err)
 	}
 
+
+
 	ast, err := parser.NewAst(toks)
 	if err != nil {
 		panic(err)
 	}
 
-	count := 0
+
+	for _, tok := range toks {
+		fmt.Println(tok.GetLexeme(), tok.GetLine(), tok.GetColumn())
+	}
+
 	err = parser.Walk(ast, func(n parser.Node) error {
-		count+=1
+		logi.Log(n.GetInfo().Value)
+		logi.Log(n.GetInfo().TextContent)
+		logi.Log(parser.GetAttribute(n, "type"))
 		return nil
 	})
-	fmt.Println(count)
 	if err != nil {
 		panic(err)
 	}

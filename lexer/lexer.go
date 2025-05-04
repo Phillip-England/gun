@@ -2,29 +2,28 @@ package lexer
 
 // Lexer represents a simple rune-based lexer for walking over text input.
 type Lexer struct {
-	Pos         int            // Current position in the source.
-	Source      []rune          // Source runes being lexed.
-	Current     rune            // Current rune being analyzed.
-	Terminated  bool            // Whether lexer has finished walking through the source.
-	Buffer      []rune          // Optional buffer to collect runes manually.
-	MarkedPos   int             // Marked position for later collection.
+	Pos         int          // Current position in the source.
+	Source      []rune       // Source runes being lexed.
+	Current     rune         // Current rune being analyzed.
+	Terminated  bool         // Whether lexer has finished walking through the source.
+	Buffer      []rune       // Optional buffer to collect runes manually.
+	MarkedPos   int          // Marked position for later collection.
 	State       string
-	CharCounter map[rune]int    // 🔥 Track rune counts.
-	Line        int             // 🔥 Current line number (starts at 1).
-	Column      int             // 🔥 Current column number (starts at 1, relative to last newline).
+	CharCounter map[rune]int // Track rune counts.
+	Spent []rune
+	Line int
+	Column int
 }
-
 
 // NewLexer creates and initializes a new Lexer from the given rune slice.
 func NewLexer(runes []rune) *Lexer {
-	l := &Lexer{}
-	l.Pos = 0
-	l.Source = runes
-	l.Terminated = false
-	l.MarkedPos = 0
-	l.CharCounter = make(map[rune]int)
-	l.Line = 1   // 🔥 Start line at 1
-	l.Column = 1 // 🔥 Start column at 1
+	l := &Lexer{
+		Pos:         0,
+		Source:      runes,
+		MarkedPos:   0,
+		CharCounter: make(map[rune]int),
+		Spent: []rune{},
+	}
 	if len(runes) == 0 {
 		l.Current = 0
 		l.Terminated = true
@@ -34,81 +33,23 @@ func NewLexer(runes []rune) *Lexer {
 	return l
 }
 
-
-
-// Step advances the lexer to the next rune in the source,
-// updating line and column tracking.
+// Step advances the lexer to the next rune.
 func (l *Lexer) Step() {
 	if l.Terminated {
 		return
 	}
-	if l.Pos+1 > len(l.Source)-1 {
+	if l.Pos+1 >= len(l.Source) {
 		l.Terminated = true
 		return
 	}
 	l.Pos++
 	l.Current = l.Source[l.Pos]
-
-	// 🔥 Update line/column numbers:
-	if l.Current == '\n' {
-		l.Line++
-		l.Column = 1
-	} else {
-		l.Column++
-	}
+	l.updateSpent()
+	l.updateLineAndColumn()
 }
 
 
-// SkipWhiteSpace skips over spaces, tabs, and newlines.
-func (l *Lexer) SkipWhiteSpace() {
-	for {
-		if l.Terminated {
-			break
-		}
-		if l.Current == ' ' || l.Current == '\t' || l.Current == '\n' {
-			l.Step()
-			continue
-		}
-		break
-	}
-}
-
-// Mark saves the current lexer position into MarkedPos.
-// Used to later collect a slice of runes from that position.
-func (l *Lexer) Mark() {
-	l.MarkedPos = l.Pos
-}
-
-// CollectFromMark collects and returns all runes from the last MarkedPos
-// up to and including the current position.
-func (l *Lexer) CollectFromMark() []rune {
-	if l.MarkedPos < 0 || l.MarkedPos > len(l.Source) {
-		return nil
-	}
-	if l.MarkedPos > l.Pos {
-		return nil // Prevent invalid slicing if MarkedPos somehow moved past Pos
-	}
-	return l.Source[l.MarkedPos : l.Pos+1]
-}
-
-// Push appends the current rune into the Buffer.
-func (l *Lexer) Push() {
-	l.Buffer = append(l.Buffer, l.Current)
-}
-
-// WalkToEnd moves the lexer position to the end of the source
-// and marks the lexer as terminated.
-func (l *Lexer) WalkToEnd() {
-	for {
-		if l.Terminated {
-			break
-		}
-		l.Step()
-	}
-}
-
-// StepBack moves the lexer one rune backward,
-// updating line and column tracking accordingly.
+// StepBack moves the lexer one rune backward.
 func (l *Lexer) StepBack() {
 	if l.Pos <= 0 {
 		return
@@ -116,26 +57,15 @@ func (l *Lexer) StepBack() {
 	l.Pos--
 	l.Current = l.Source[l.Pos]
 	l.Terminated = false
-
-	// 🔥 Update line/column numbers when stepping back:
-	if l.Current == '\n' {
-		l.Line--
-		// Recompute column (walk backward to find last '\n' or start)
-		l.Column = 1
-		for i := l.Pos - 1; i >= 0; i-- {
-			if l.Source[i] == '\n' {
-				break
-			}
-			l.Column++
-		}
-	} else {
-		l.Column--
-		if l.Column < 1 {
-			l.Column = 1
-		}
-	}
+	l.updateSpent()
+	l.updateLineAndColumn()
 }
 
+
+// Mark saves the current position.
+func (l *Lexer) Mark() {
+	l.MarkedPos = l.Pos
+}
 
 // JumpToMark repositions the lexer back to the last marked position.
 func (l *Lexer) JumpToMark() {
@@ -143,128 +73,160 @@ func (l *Lexer) JumpToMark() {
 		l.Pos = l.MarkedPos
 		l.Current = l.Source[l.Pos]
 		l.Terminated = false
+		l.updateSpent()
+		l.updateLineAndColumn()
 	}
 }
 
-// WalkUntil walks forward until the target rune is found.
-// If found, returns true. If not found, lexer just terminates naturally and returns false.
-// Does NOT touch the mark.
-func (l *Lexer) WalkUntil(target rune) bool {
-	for {
-		if l.Terminated {
-			return false
-		}
-		if l.Current == target {
-			return true
-		}
-		l.Step()
+
+// CollectFromMark returns all runes from MarkedPos up to current Pos.
+func (l *Lexer) CollectFromMark() []rune {
+	if l.MarkedPos < 0 || l.MarkedPos > l.Pos || l.Pos >= len(l.Source) {
+		return nil
 	}
+	return l.Source[l.MarkedPos : l.Pos+1]
 }
 
-// WalkBackUntil walks backward until the target rune is found.
-// If found, returns true. If not found, lexer just stops at start and returns false.
-// Does NOT touch the mark.
-func (l *Lexer) WalkBackUntil(target rune) bool {
-	for {
-		if l.Pos <= 0 {
-			return false
-		}
-		if l.Current == target {
-			return true
-		}
-		l.StepBack()
-	}
+// Push adds the current rune to the buffer.
+func (l *Lexer) Push() {
+	l.Buffer = append(l.Buffer, l.Current)
 }
 
-func (l *Lexer) Char() string {
-	return string(l.Current)
-}
-
-// Flush returns the entire Buffer and clears it.
+// Flush clears and returns the buffer.
 func (l *Lexer) Flush() []rune {
 	out := l.Buffer
 	l.Buffer = []rune{}
 	return out
 }
 
-// FlushFromMark collects runes from MarkedPos up to and including the current Pos,
-// clears the Buffer, and returns the collected slice.
+// FlushFromMark collects runes from mark and clears the buffer.
 func (l *Lexer) FlushFromMark() []rune {
 	collected := l.CollectFromMark()
 	l.Buffer = []rune{}
 	return collected
 }
 
-
-func (l *Lexer) CharIs(char string) (bool) {
-	return l.Char() == char	
+// WalkToEnd steps until termination.
+func (l *Lexer) WalkToEnd() {
+	for !l.Terminated {
+		l.Step()
+	}
 }
 
-// Peek returns the rune that is offset spaces away from the current position.
-// Positive offset looks forward, negative offset looks backward.
-// If the calculated position is out of bounds, returns 0.
+// WalkUntil stops when target rune is found.
+func (l *Lexer) WalkUntil(target rune) bool {
+	for !l.Terminated {
+		if l.Current == target {
+			return true
+		}
+		l.Step()
+	}
+	return false
+}
+
+// WalkBackUntil steps back until target rune is found.
+func (l *Lexer) WalkBackUntil(target rune) bool {
+	for l.Pos > 0 {
+		if l.Current == target {
+			return true
+		}
+		l.StepBack()
+	}
+	return false
+}
+
+// Char returns the current rune as string.
+func (l *Lexer) Char() string {
+	return string(l.Current)
+}
+
+// CharIs checks if current rune matches.
+func (l *Lexer) CharIs(char string) bool {
+	return l.Char() == char
+}
+
+// Peek looks ahead or behind without moving.
 func (l *Lexer) Peek(offset int) rune {
 	targetPos := l.Pos + offset
 	if targetPos < 0 || targetPos >= len(l.Source) {
-		return 0 // You could choose another sentinel if you want
+		return 0
 	}
 	return l.Source[targetPos]
 }
 
+// SkipWhiteSpace steps through space, tab, newline.
+func (l *Lexer) SkipWhiteSpace() {
+	for !l.Terminated && (l.Current == ' ' || l.Current == '\t' || l.Current == '\n') {
+		l.Step()
+	}
+}
 
-// WalkUntilSkipQuotes walks forward until it finds the target rune,
-// skipping over any instances of the target that occur inside single ('') or double ("") quotes.
-// Returns true if the target was found outside of quotes, false otherwise.
+// WalkUntilSkipQuotes skips quoted targets.
 func (l *Lexer) WalkUntilSkipQuotes(target rune) bool {
 	inSingleQuote := false
 	inDoubleQuote := false
 
-	for {
-		if l.Terminated {
-			return false
-		}
-
-		// If outside any quotes and we find the target, success
+	for !l.Terminated {
 		if !inSingleQuote && !inDoubleQuote && l.Current == target {
 			return true
 		}
-
-		// Handle entering or exiting quotes
 		if l.Current == '\'' && !inDoubleQuote {
 			inSingleQuote = !inSingleQuote
 		} else if l.Current == '"' && !inSingleQuote {
 			inDoubleQuote = !inDoubleQuote
 		}
-
 		l.Step()
 	}
+	return false
 }
 
-// Count records the current rune into the CharCounter map.
+// Count tracks current rune.
 func (l *Lexer) Count() {
 	l.CharCounter[l.Current]++
 }
 
-
-// GetCount returns the number of times the given rune has appeared so far.
+// GetCount returns count of a rune.
 func (l *Lexer) GetCount(r rune) int {
 	return l.CharCounter[r]
 }
 
-// ResetCount clears the CharCounter map, resetting all recorded rune counts.
+// ResetCount clears all rune counts.
 func (l *Lexer) ResetCount() {
 	l.CharCounter = make(map[rune]int)
 }
 
-// IsEscaped checks if the current character is escaped by a backslash.
-// It looks at the previous character to see if it's a backslash.
-// Note: This doesn't account for double-escaped characters.
+// IsEscaped checks if current rune is escaped.
 func (l *Lexer) IsEscaped() bool {
-	// If we're at the beginning of the source, the character can't be escaped
-	if l.Pos <= 0 {
-			return false
-	}
-	
-	// Check if the previous character is a backslash
-	return l.Source[l.Pos-1] == '\\'
+	return l.Pos > 0 && l.Source[l.Pos-1] == '\\'
 }
+
+
+// updateSpent recalculates the runes from start to current Pos.
+func (l *Lexer) updateSpent() {
+	if l.Pos >= 0 && l.Pos < len(l.Source) {
+		l.Spent = l.Source[0 : l.Pos+1]
+	} else if l.Pos >= len(l.Source) {
+		l.Spent = l.Source
+	} else {
+		l.Spent = []rune{}
+	}
+}
+
+func (l *Lexer) updateLineAndColumn() {
+	l.Line = 1
+	l.Column = 1
+	for i := 0; i < l.Pos; i++ {
+		if l.Source[i] == '\n' {
+			l.Line++
+			l.Column = 1
+		} else {
+			l.Column++
+		}
+	}
+}
+
+// SpentString returns the spent runes as a string.
+func (l *Lexer) SpentString() string {
+	return string(l.Spent)
+}
+
