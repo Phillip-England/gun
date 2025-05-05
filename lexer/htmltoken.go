@@ -10,7 +10,7 @@ import (
 type HtmlTokenType string
 
 const (
-	EmptySpace HtmlTokenType = "EmptySpace"
+	// EmptySpace HtmlTokenType = "EmptySpace"
 	HtmlOpen   HtmlTokenType = "HtmlOpen"
 	HtmlClose  HtmlTokenType = "HtmlClose"
 	HtmlVoid   HtmlTokenType = "HtmlVoid"
@@ -97,10 +97,7 @@ func GetClosingTag(tok Token, i int, toks []Token) (Token, int, error) {
 	if tok.GetType() != HtmlOpen {
 		return tok, -1, fmt.Errorf(`attempted to extract the closing tag from an invalid token: %s`, tok.GetLexeme())
 	}
-	name, err := GetTagName(tok)
-	if err != nil {
-		return tok, -1, err
-	}
+	name := GetTagName(tok)
 	found := 1
 	for i1, tok1 := range toks {
 		if i1 <= i {
@@ -109,10 +106,7 @@ func GetClosingTag(tok Token, i int, toks []Token) (Token, int, error) {
 		if tok1.GetType() != HtmlOpen && tok1.GetType() != HtmlClose {
 			continue
 		}
-		name1, err := GetTagName(tok1)
-		if err != nil {
-			return tok, -1, err
-		}
+		name1 := GetTagName(tok1)
 		if name != name1 {
 			continue
 		}
@@ -131,7 +125,6 @@ func GetClosingTag(tok Token, i int, toks []Token) (Token, int, error) {
 }
 
 func IsSelfContained(toks []Token) (bool, error) {
-	toks = RemoveEmptySpace(toks)
 	innerToks, err := ShedOuterHtml(toks)
 	if err != nil {
 		return false, err
@@ -143,17 +136,6 @@ func IsSelfContained(toks []Token) (bool, error) {
 }
 
 
-// RemoveEmptySpace filters out all tokens of type EmptySpace from the provided token slice.
-func RemoveEmptySpace(toks []Token) []Token {
-	filtered := make([]Token, 0, len(toks))
-	for _, tok := range toks {
-		if tok.GetType() != EmptySpace {
-			filtered = append(filtered, tok)
-		}
-	}
-	return filtered
-}
-
 
 func ShedOuterHtml(toks []Token) ([]Token, error) {
 	out := []Token{}
@@ -164,23 +146,16 @@ func ShedOuterHtml(toks []Token) ([]Token, error) {
 	if firstTok.GetType() == HtmlClose {
 		return out, fmt.Errorf("you cannot shed the outerhtml of an html closing tag: %s", firstTok.GetType())
 	}
-	filteredToks := []Token{}
-	for _, tok := range toks {
-		if tok.GetType() == EmptySpace {
-			continue
-		}
-		filteredToks = append(filteredToks, tok)
-	}
-	_, closeTagIndex, err := GetClosingTag(filteredToks[0], 0, filteredToks)
+	_, closeTagIndex, err := GetClosingTag(toks[0], 0, toks)
 	if err != nil {
 		return out, err
 	}
-	if closeTagIndex == len(filteredToks)-1 {
-		filteredToks = filteredToks[1:]
-		filteredToks = filteredToks[:len(filteredToks)-1]
-		return filteredToks, nil
+	if closeTagIndex == len(toks)-1 {
+		toks = toks[1:]
+		toks = toks[:len(toks)-1]
+		return toks, nil
 	} else {
-		return filteredToks, nil
+		return toks, nil
 	}
 }
 
@@ -189,9 +164,9 @@ func ShedOuterHtml(toks []Token) ([]Token, error) {
 
 // GetTagName extracts the tag name from an HtmlOpen or HtmlClose token's lexeme.
 // Strips angle brackets, slashes, and attributes, returning just the tag name.
-func GetTagName(tok Token) (string, error) {
+func GetTagName(tok Token) string {
 	if HtmlTokenType(tok.GetType()) != HtmlOpen && HtmlTokenType(tok.GetType()) != HtmlClose && HtmlTokenType(tok.GetType()) != HtmlVoid {
-		return "", fmt.Errorf(`tag names can only be extracted from HtmlOpen and HtmlClose but you attempted to extract on: %s`, tok)
+		return ""
 	}
 	s := tok.GetLexeme()
 	s = strings.Replace(s, "<", "", 1)
@@ -201,10 +176,10 @@ func GetTagName(tok Token) (string, error) {
 	for _, part := range parts {
 		sq := stur.Squeeze(part)
 		if sq != "" {
-			return part, nil
+			return part
 		}
 	}
-	return "", fmt.Errorf(`failed to extract tag name from: %s`, tok.GetLexeme())
+	return ""
 }
 
 // firstPass performs an initial walk over the input runes and splits the input
@@ -224,12 +199,13 @@ func firstPass(input []rune) ([]Token, error) {
 			l.StepBack()
 			buf := string(l.FlushFromMark())
 			if len(stur.Squeeze(buf)) == 0 {
-				toks = append(toks, HtmlToken{
-					Lexeme: buf,
-					Type:   EmptySpace,
-					Line: l.Line,
-					Column: l.Column,
-				})
+				// OPTING OUT OF COLLECTING EMPTY SPACE
+				// toks = append(toks, HtmlToken{
+				// 	Lexeme: buf,
+				// 	Type:   EmptySpace,
+				// 	Line: l.Line,
+				// 	Column: l.Column,
+				// })
 			} else {
 				toks = append(toks, HtmlToken{
 					Lexeme: buf,

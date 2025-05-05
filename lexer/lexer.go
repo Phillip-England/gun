@@ -35,11 +35,16 @@ func NewLexer(runes []rune) *Lexer {
 
 // Step advances the lexer to the next rune.
 func (l *Lexer) Step() {
+	if l.Pos < 0 {
+		l.Pos = 0
+	}
 	if l.Terminated {
+		l.Pos = len(l.Source)-1
 		return
 	}
 	if l.Pos+1 >= len(l.Source) {
 		l.Terminated = true
+		l.Pos = len(l.Source)-1
 		return
 	}
 	l.Pos++
@@ -52,7 +57,11 @@ func (l *Lexer) Step() {
 // StepBack moves the lexer one rune backward.
 func (l *Lexer) StepBack() {
 	if l.Pos <= 0 {
+		l.Pos = 0
 		return
+	}
+	if l.Pos > len(l.Source)-1 {
+		l.Pos = len(l.Source)-1
 	}
 	l.Pos--
 	l.Current = l.Source[l.Pos]
@@ -81,10 +90,14 @@ func (l *Lexer) JumpToMark() {
 
 // CollectFromMark returns all runes from MarkedPos up to current Pos.
 func (l *Lexer) CollectFromMark() []rune {
-	if l.MarkedPos < 0 || l.MarkedPos > l.Pos || l.Pos >= len(l.Source) {
+	if l.MarkedPos < 0  || l.Pos >= len(l.Source) {
 		return nil
 	}
-	return l.Source[l.MarkedPos : l.Pos+1]
+	if l.Pos+1 > l.MarkedPos {
+		return l.Source[l.MarkedPos : l.Pos+1]
+	} else {
+		return l.Source[l.Pos : l.MarkedPos+1]
+	}
 }
 
 // Push adds the current rune to the buffer.
@@ -116,10 +129,10 @@ func (l *Lexer) WalkToEnd() {
 // WalkUntil stops when target rune is found.
 func (l *Lexer) WalkUntil(target rune) bool {
 	for !l.Terminated {
+		l.Step()
 		if l.Current == target {
 			return true
 		}
-		l.Step()
 	}
 	return false
 }
@@ -203,8 +216,12 @@ func (l *Lexer) IsEscaped() bool {
 
 // updateSpent recalculates the runes from start to current Pos.
 func (l *Lexer) updateSpent() {
+	if l.Pos == len(l.Source)-1 {
+		l.Spent = l.Source
+		return
+	}
 	if l.Pos >= 0 && l.Pos < len(l.Source) {
-		l.Spent = l.Source[0 : l.Pos+1]
+		l.Spent = l.Source[0 : l.Pos]
 	} else if l.Pos >= len(l.Source) {
 		l.Spent = l.Source
 	} else {
@@ -229,4 +246,16 @@ func (l *Lexer) updateLineAndColumn() {
 func (l *Lexer) SpentString() string {
 	return string(l.Spent)
 }
+
+// StepBackToStart resets the lexer to the start of the source.
+func (l *Lexer) WalkBackToStart() {
+	l.Pos = 0
+	l.Terminated = len(l.Source) == 0
+	if !l.Terminated {
+		l.Current = l.Source[0]
+	}
+	l.updateSpent()
+	l.updateLineAndColumn()
+}
+
 
