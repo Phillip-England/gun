@@ -56,4 +56,5 @@ func TestHtmlToken(t *testing.T) {
 		t.Errorf(`lens do not match and they should len(expectedTagNames) %d len(actualTagNames) %d`, len(expectedTagNames), len(actualTagNames))
 	}
 	// a slice of tokens is considered to be self contained it if does not contain any outlying stragling html bits
+	
 }
