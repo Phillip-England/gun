@@ -3,16 +3,16 @@ package main
 import (
 	"fmt"
 
-	"github.com/phillip-england/gtml/lexer"
 	"github.com/phillip-england/gtml/logi"
 	"github.com/phillip-england/gtml/parser"
+	"github.com/phillip-england/gtml/token"
 )
 
 func main() {
 
 	logi.Clear()
 
-	toks, err := lexer.TokenizeHtml([]rune(`
+	toks, err := token.TokenizeHtml([]rune(`
 	
 	
 		<input type='text'>
