@@ -12,16 +12,16 @@ type HtmlTokenType string
 
 const (
 	// EmptySpace HtmlTokenType = "EmptySpace"
-	HtmlOpen   HtmlTokenType = "HtmlOpen"
-	HtmlClose  HtmlTokenType = "HtmlClose"
-	HtmlVoid   HtmlTokenType = "HtmlVoid"
-	Text       HtmlTokenType = "Text"
+	HtmlOpen  HtmlTokenType = "HtmlOpen"
+	HtmlClose HtmlTokenType = "HtmlClose"
+	HtmlVoid  HtmlTokenType = "HtmlVoid"
+	Text      HtmlTokenType = "Text"
 )
 
 type HtmlToken struct {
 	Lexeme string
 	Type   HtmlTokenType
-	Line int
+	Line   int
 	Column int
 }
 
@@ -47,6 +47,7 @@ func (tok HtmlToken) GetColumn() int {
 // into a list of tokens through two passes: raw token extraction
 // and structural classification (e.g., identifying void elements).
 func TokenizeHtml(input []rune) ([]Token, error) {
+	err := validateTokenInput(input)
 	toks, err := firstPass(input)
 	if err != nil {
 		return toks, err
@@ -55,8 +56,11 @@ func TokenizeHtml(input []rune) ([]Token, error) {
 	if err != nil {
 		return toks, err
 	}
-
 	return toks, nil
+}
+
+func validateTokenInput(input []rune) error {
+	return nil
 }
 
 // secondPass processes tokens from the first pass and determines if
@@ -77,7 +81,7 @@ func secondPass(toks []Token) ([]Token, error) {
 			out = append(out, HtmlToken{
 				Lexeme: tok.GetLexeme(),
 				Type:   HtmlVoid,
-				Line: tok.GetLine(),
+				Line:   tok.GetLine(),
 				Column: tok.GetColumn(),
 			})
 		} else {
@@ -136,10 +140,25 @@ func IsSelfContained(toks []Token) (bool, error) {
 	return true, nil
 }
 
-func ExtractFullElement(tok Token, i int, toks []Token) {
-	
+// Extracts the full element from a slice of tokens
+// if a full element cannot be derived from the token set
+// an empty string will be returned
+func ExtractFullElement(tok Token, i int, toks []Token) (string, error) {
+	if len(toks) == 0 {
+		return "", nil
+	}
+	firstTok := toks[0]
+	_, endI, err := GetClosingTag(firstTok, i, toks)
+	if err != nil {
+		return "", err
+	}
+	if endI > len(toks)-1 {
+		return "", fmt.Errorf(`GetClosingTag resulted in an endI index which is out of bounds`)
+	}
+	subSlice := toks[0 : endI+1]
+	out := Construct(subSlice)
+	return out, nil
 }
-
 
 func ShedOuterHtml(toks []Token) ([]Token, error) {
 	out := []Token{}
@@ -162,9 +181,6 @@ func ShedOuterHtml(toks []Token) ([]Token, error) {
 		return toks, nil
 	}
 }
-
-
-
 
 // GetTagName extracts the tag name from an HtmlOpen or HtmlClose token's lexeme.
 // Strips angle brackets, slashes, and attributes, returning just the tag name.
@@ -214,8 +230,8 @@ func firstPass(input []rune) ([]Token, error) {
 				toks = append(toks, HtmlToken{
 					Lexeme: buf,
 					Type:   Text,
-					Line: l.Line,
-					Column: l.Column-len(buf),
+					Line:   l.Line,
+					Column: l.Column - len(buf),
 				})
 			}
 			l.Step()
@@ -232,15 +248,15 @@ func firstPass(input []rune) ([]Token, error) {
 				toks = append(toks, HtmlToken{
 					Lexeme: buf,
 					Type:   HtmlClose,
-					Line: l.Line,
-					Column: l.Column-len(buf),
+					Line:   l.Line,
+					Column: l.Column - len(buf),
 				})
 			} else {
 				toks = append(toks, HtmlToken{
 					Lexeme: buf,
 					Type:   HtmlOpen,
-					Line: l.Line,
-					Column: l.Column-len(buf),
+					Line:   l.Line,
+					Column: l.Column - len(buf),
 				})
 			}
 			l.Step()

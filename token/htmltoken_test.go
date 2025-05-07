@@ -29,19 +29,19 @@ func TestHtmlToken(t *testing.T) {
 	}
 	// if we iterate through each tag name and collect, we should get something like this:
 	expectedTagNames := []string{
-		"form",    // <form>
-		"h1",      // <h1>
-		"",        // Login Form (text)
-		"h1",      // </h1>
-		"ul",      // <ul>
-		"li",      // <li>
-		"input",   // <input type='text' name='username'>
-		"li",      // </li>
-		"li",      // <li>
-		"input",   // <input type='password' name='password'>
-		"li",      // </li>
-		"ul",      // </ul>
-		"form",    // </form>
+		"form",  // <form>
+		"h1",    // <h1>
+		"",      // Login Form (text)
+		"h1",    // </h1>
+		"ul",    // <ul>
+		"li",    // <li>
+		"input", // <input type='text' name='username'>
+		"li",    // </li>
+		"li",    // <li>
+		"input", // <input type='password' name='password'>
+		"li",    // </li>
+		"ul",    // </ul>
+		"form",  // </form>
 	}
 	// then if we collect the actual tag names
 	actualTagNames := []string{}
@@ -84,18 +84,32 @@ func TestHtmlToken(t *testing.T) {
 	if preShedStr != postShedStr {
 		t.Errorf(`expected shedding to not alter the <h1> in the login form but it did`)
 	}
-
-	// WORKING ON EXTRACT FULL ELEMENT IN HTMLTOKEN.GO
-
-
 	// lets see if we can locate the closing tag
 	h1 := inner1[0]
 	if GetTagName(h1) != "h1" {
 		t.Errorf(`expected first tag in inner1 to be a <h1>`)
 	}
-	closingh1, endI, err := GetClosingTag(h1, 0, inner1)
+	closingh1, _, err := GetClosingTag(h1, 0, inner1)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(closingh1, endI)
+	if closingh1.GetLexeme() != "</h1>" {
+		t.Errorf(`expected </h1> but found %s`, closingh1.GetLexeme())
+	}
+	// and can we just extract the element outright?
+	elmStr, err := ExtractFullElement(h1, 0, inner1)
+	if err != nil {
+		panic(err)
+	}
+	if elmStr != "<h1>Login Form</h1>" {
+		t.Errorf(`expected ExtractFullElement to pull the <h1> out but instead we got %s`, elmStr)
+	}
+	// okay what if we start messing with our input, how do things work?
+	empty := []rune("")
+	toks, err = TokenizeHtml(empty)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(toks)
+
 }
