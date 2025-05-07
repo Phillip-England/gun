@@ -1,34 +1,26 @@
 package token
 
-import (
-	"fmt"
+import "github.com/phillip-england/gtml/logi"
 
-	"github.com/phillip-england/gtml/lexer"
-)
-
-type TokenType string
-
-type Token struct {
-	Lexeme string
-	Type TokenType
+type Token interface {
+	GetLexeme() string
+	GetType() HtmlTokenType
+	GetLine() int
+	GetColumn() int
 }
 
-func Tokenize(runes []rune) (string, error) {
-
-	l := lexer.NewLexer(runes)
-
-	for {
-		if l.Terminated {
-			break
-		}
-		l.SkipWhiteSpace()
-		fmt.Println(l.Char)
-		l.Step()
+func LogTokens(toks []Token) {
+	logi.Log(Construct(toks))
+	for _, tok := range toks {
+		logi.Log(tok.GetType(), tok.GetLexeme())
 	}
-	
-
-	
-
-
-	return "", nil
 }
+
+func Construct(toks[]Token) string {
+	out := ""
+	for _, tok := range toks {
+		out += tok.GetLexeme()
+	}
+	return out
+}
+
